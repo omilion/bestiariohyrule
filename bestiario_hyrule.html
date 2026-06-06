@@ -91,6 +91,10 @@
       border-color: var(--forest);
     }
 
+    .menu-toggle {
+      display: none;
+    }
+
     .book {
       width: min(1180px, calc(100% - 32px));
       margin: 0 auto;
@@ -1226,21 +1230,107 @@
     }
 
     @media (max-width: 900px) {
+      body {
+        min-height: 100dvh;
+      }
+
+      .toolbar {
+        position: fixed;
+        inset: auto 12px 70px auto;
+        z-index: 40;
+        display: block;
+        width: min(210px, calc(100vw - 24px));
+        padding: 8px;
+        border: 1px solid rgba(31, 37, 35, .18);
+        border-radius: 8px;
+        background: rgba(255, 244, 216, .96);
+        box-shadow: 0 18px 48px rgba(31, 37, 35, .24);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition: opacity .18s ease, transform .18s ease;
+      }
+
+      body.menu-open .toolbar {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .toolbar-title {
+        display: none;
+      }
+
+      .toolbar-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+
+      .toolbar button,
+      .page-status {
+        width: 100%;
+        min-height: 28px;
+        padding: 5px 8px;
+        border-radius: 6px;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11px;
+        line-height: 1.1;
+      }
+
+      .page-status {
+        order: -1;
+      }
+
+      .menu-toggle {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        z-index: 45;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        width: 42px;
+        height: 42px;
+        border: 1px solid rgba(255, 244, 216, .38);
+        border-radius: 999px;
+        color: #fff4d8;
+        background: rgba(16, 33, 27, .96);
+        box-shadow: 0 12px 34px rgba(31, 37, 35, .34);
+        cursor: pointer;
+      }
+
+      .menu-toggle span,
+      .menu-toggle::before,
+      .menu-toggle::after {
+        content: "";
+        width: 18px;
+        height: 2px;
+        border-radius: 999px;
+        background: currentColor;
+      }
+
       .book-shell {
         width: 100vw;
         max-width: 100vw;
-        min-height: auto;
-        align-items: flex-start;
-        padding: 12px;
+        height: 100dvh;
+        min-height: 100dvh;
+        align-items: stretch;
+        padding: 0;
         overflow: hidden;
       }
 
       .book-frame {
-        width: calc(100vw - 36px);
-        max-width: calc(100vw - 36px);
+        width: 100vw;
+        height: 100dvh;
+        max-width: 100vw;
+        max-height: 100dvh;
+        aspect-ratio: auto;
         min-height: 0;
-        max-height: none;
-        padding: 12px;
+        padding: 10px;
+        border-radius: 0;
       }
 
       .book-frame::before {
@@ -1321,33 +1411,6 @@
     }
 
     @media (max-width: 640px) {
-      .toolbar {
-        width: 100vw;
-        max-width: 100vw;
-        overflow: hidden;
-      }
-
-      .toolbar-actions {
-        width: 100%;
-        max-width: 100%;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr);
-      }
-
-      .toolbar button {
-        width: 100%;
-        min-width: 0;
-      }
-
-      .page-status {
-        min-width: 0;
-      }
-
-      #printCurrent,
-      #printAll {
-        grid-column: 1 / -1;
-      }
-
       .index-stats {
         grid-template-columns: 1fr;
       }
@@ -1513,6 +1576,10 @@
       <button type="button" id="printAll">Imprimir libro</button>
     </div>
   </header>
+
+  <button type="button" class="menu-toggle" id="menuToggle" aria-label="Abrir opciones" aria-expanded="false">
+    <span></span>
+  </button>
 
   <main class="book-shell" id="book">
     <div class="book-frame">
@@ -2221,6 +2288,7 @@
     const printCurrentButton = document.getElementById("printCurrent");
     const printAllButton = document.getElementById("printAll");
     const pageStatus = document.getElementById("pageStatus");
+    const menuToggle = document.getElementById("menuToggle");
     const imageLightbox = document.getElementById("imageLightbox");
     const lightboxImage = document.getElementById("lightboxImage");
     const lightboxCaption = document.getElementById("lightboxCaption");
@@ -2475,17 +2543,39 @@
       lightboxCaption.textContent = "";
     }
 
+    function setMenu(open) {
+      document.body.classList.toggle("menu-open", open);
+      menuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
     bookPages.innerHTML = pages.map(renderPage).join("");
     const urlParams = new URLSearchParams(window.location.search);
     const requestedPage = Number(urlParams.get("page"));
     showPage(Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage - 1 : 0);
     if (urlParams.get("print") === "current") document.body.classList.add("print-current");
     if (urlParams.get("print") === "all") document.body.classList.add("print-all");
+    if (urlParams.get("menu") === "open") setMenu(true);
 
-    prevButton.addEventListener("click", () => setPage(activePage - 1));
-    nextButton.addEventListener("click", () => setPage(activePage + 1));
-    printCurrentButton.addEventListener("click", () => printBook("current"));
-    printAllButton.addEventListener("click", () => printBook("all"));
+    menuToggle.addEventListener("click", () => {
+      setMenu(!document.body.classList.contains("menu-open"));
+    });
+
+    prevButton.addEventListener("click", () => {
+      setPage(activePage - 1);
+      setMenu(false);
+    });
+    nextButton.addEventListener("click", () => {
+      setPage(activePage + 1);
+      setMenu(false);
+    });
+    printCurrentButton.addEventListener("click", () => {
+      setMenu(false);
+      printBook("current");
+    });
+    printAllButton.addEventListener("click", () => {
+      setMenu(false);
+      printBook("all");
+    });
 
     bookPages.addEventListener("pointerdown", event => {
       if (isTurning || imageLightbox.classList.contains("is-open")) return;
@@ -2570,8 +2660,15 @@
         if (event.key === "Escape") closeLightbox();
         return;
       }
+      if (event.key === "Escape") setMenu(false);
       if (event.key === "ArrowLeft") setPage(activePage - 1);
       if (event.key === "ArrowRight") setPage(activePage + 1);
+    });
+
+    document.addEventListener("click", event => {
+      if (!document.body.classList.contains("menu-open")) return;
+      if (event.target.closest(".toolbar, .menu-toggle")) return;
+      setMenu(false);
     });
 
     imageLightbox.addEventListener("click", event => {
